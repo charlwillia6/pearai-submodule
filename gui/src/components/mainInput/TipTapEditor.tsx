@@ -159,6 +159,7 @@ interface TipTapEditorProps {
   editorState?: JSONContent;
   source?: 'perplexity' | 'aider' | 'continue';
   onChange?: (newState: JSONContent) => void;
+  predictiveCompletion?: string;
 }
 
 const TipTapEditor = memo(function TipTapEditor({
@@ -169,6 +170,7 @@ const TipTapEditor = memo(function TipTapEditor({
   editorState,
   source = 'continue',
   onChange,
+  predictiveCompletion
 }: TipTapEditorProps) {
   const dispatch = useDispatch();
 
@@ -197,6 +199,7 @@ const TipTapEditor = memo(function TipTapEditor({
 
   const posthog = usePostHog();
   const [isEditorFocused, setIsEditorFocused] = useState(false);
+  const [showPrediction, setShowPrediction] = useState(false);
 
   const inSubmenuRef = useRef<string | undefined>(undefined);
   const inDropdownRef = useRef(false);
@@ -360,6 +363,14 @@ const TipTapEditor = memo(function TipTapEditor({
       Paragraph.extend({
         addKeyboardShortcuts() {
           return {
+            Tab: () => {
+              if (predictiveCompletion) {
+                this.editor.commands.insertContent(predictiveCompletion);
+                return true;
+              }
+              return false;
+            },
+
             Enter: () => {
               if (inDropdownRef.current) {
                 return false;
@@ -485,6 +496,16 @@ const TipTapEditor = memo(function TipTapEditor({
         class: "outline-none -mt-1 mb-1 overflow-hidden",
         style: `font-size: ${getFontSize()}px;`,
       },
+      handleKeyDown: (view, event) => {
+        if (event.key === 'Tab' && !event.shiftKey && predictiveCompletion) {
+          event.preventDefault();
+          // Insert the completion
+          const completion = predictiveCompletion;
+          view.dispatch(view.state.tr.insertText(completion));
+          return true;
+        }
+        return false;
+      },
     },
     content: lastContentRef.current,
     editable: true,
@@ -522,6 +543,7 @@ const TipTapEditor = memo(function TipTapEditor({
         if (!editor || !editorFocusedRef.current) {
           return;
         }
+
         if ((event.metaKey || event.ctrlKey) && event.key === "x") {
           // Cut
           const selectedText = editor.state.doc.textBetween(
@@ -579,7 +601,7 @@ const TipTapEditor = memo(function TipTapEditor({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [editor, editorFocusedRef]);
+  }, [editor, editorFocusedRef, predictiveCompletion]);
 
   useEffect(() => {
     if (mainEditorContent && editor) {
@@ -639,6 +661,32 @@ const TipTapEditor = memo(function TipTapEditor({
       editor.commands.focus(undefined, { scrollIntoView: false });
     }
   }, [isMainInput, active, editor]);
+
+  useEffect(() => {
+    if (predictiveCompletion) {
+      setShowPrediction(true);
+    } else {
+      setShowPrediction(false);
+    }
+  }, [predictiveCompletion]);
+
+  // Add this useEffect to track editor content changes
+useEffect(() => {
+  if (!editor) return;
+
+  const handleUpdate = () => {
+    const text = editor.getText();
+    // Notify parent component of changes
+    onChange?.(editor.getJSON());
+  };
+
+  editor.on('update', handleUpdate);
+
+  return () => {
+    editor.off('update', handleUpdate);
+  };
+}, [editor, onChange]);
+
 
   // IDE event listeners
   useWebviewListener(
@@ -970,6 +1018,26 @@ const TipTapEditor = memo(function TipTapEditor({
           event.stopPropagation();
         }}
       />
+{predictiveCompletion && showPrediction && (
+  <div
+    style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      padding: '8px 12px',
+      color: lightGray,
+      pointerEvents: 'none',
+      fontFamily: 'inherit',
+      fontSize: getFontSize(),
+      zIndex: 10,
+      whiteSpace: 'pre-wrap', // Preserve whitespace
+      width: '100%',
+      boxSizing: 'border-box'
+    }}
+  >
+    {editor?.getText() + predictiveCompletion}
+  </div>
+)}
       <InputToolbar
         showNoContext={optionKeyHeld}
         hidden={!(editorFocusedRef.current || isMainInput)}

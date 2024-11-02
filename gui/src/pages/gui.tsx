@@ -50,6 +50,8 @@ import {
 } from "../util";
 import { FREE_TRIAL_LIMIT_REQUESTS } from "../util/freeTrial";
 import { getLocalStorage, setLocalStorage } from "../util/localStorage";
+import PredictiveTextInput from '../components/PredictiveTestInput';
+import { UserContext } from '../context/UserContext';
 
 export const TopGuiDiv = styled.div`
   overflow-y: scroll;
@@ -384,14 +386,26 @@ function GUI() {
               );
             })}
           </StepsDiv>
-          <ContinueInputBox
-            onEnter={(editorContent, modifiers) => {
-              sendInput(editorContent, modifiers);
-            }}
-            isLastUserInput={false}
-            isMainInput={true}
-            hidden={active}
-          ></ContinueInputBox>
+          {/* {isProUser ? ( */}
+            <PredictiveTextInput
+              onEnter={(editorContent, modifiers) => {
+                sendInput(editorContent, modifiers);
+              }}
+              isLastUserInput={false}
+              isMainInput={true}
+              hidden={active}
+              source="continue"
+            />
+          {/* ) : (
+            <ContinueInputBox
+              onEnter={(editorContent, modifiers) => {
+                sendInput(editorContent, modifiers);
+              }}
+              isLastUserInput={false}
+              isMainInput={true}
+              hidden={active}
+            />
+          )} */}
           {active ? (
             <>
               <br />

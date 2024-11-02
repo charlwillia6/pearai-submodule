@@ -61,6 +61,7 @@ interface ContinueInputBoxProps {
   contextItems?: ContextItemWithId[];
   hidden?: boolean;
   source?: "perplexity" | "aider" | "continue";
+  predictiveCompletion?: string;
 }
 
 const ContinueInputBox = memo(function ContinueInputBox({
@@ -71,6 +72,8 @@ const ContinueInputBox = memo(function ContinueInputBox({
   contextItems,
   hidden,
   source = "continue",
+  predictiveCompletion,
+
 }: ContinueInputBoxProps) {
   const dispatch = useDispatch();
 
@@ -145,6 +148,7 @@ const ContinueInputBox = memo(function ContinueInputBox({
           }
           source={source}
           onChange={handleEditorChange}
+          predictiveCompletion={predictiveCompletion}
         />
       </GradientBorder>
       <ContextItemsPeek contextItems={contextItems}></ContextItemsPeek>
