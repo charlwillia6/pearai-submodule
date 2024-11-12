@@ -12,13 +12,12 @@ import {
 } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChatScrollAnchor } from "../../components/ChatScrollAnchor";
 import StepContainer from "../../components/gui/StepContainer";
 import TimelineItem from "../../components/gui/TimelineItem";
 import ContinueInputBox from "../../components/mainInput/ContinueInputBox";
 import { defaultInputModifiers } from "../../components/mainInput/inputModifiers";
-import { TutorialCard } from "../../components/mainInput/TutorialCard";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import useChatHandler from "../../hooks/useChatHandler";
 import useHistory from "../../hooks/useHistory";
@@ -34,7 +33,6 @@ import { RootState } from "../../redux/store";
 import { getMetaKeyLabel, isMetaEquivalentKeyPressed } from "../../util";
 import { FREE_TRIAL_LIMIT_REQUESTS } from "../../util/freeTrial";
 import { getLocalStorage, setLocalStorage } from "../../util/localStorage";
-import { isBareChatMode } from "../../util/bareChatMode";
 import { Badge } from "../../components/ui/badge";
 import {
   TopGuiDiv,
@@ -44,6 +42,9 @@ import {
   fallbackRender,
 } from "../../pages/gui";
 import { CustomTutorialCard } from "@/components/mainInput/CustomTutorialCard";
+import { cn } from "@/lib/utils";
+import { Citations } from './Citations';
+
 
 function PerplexityGUI() {
   const posthog = usePostHog();
@@ -117,6 +118,13 @@ function PerplexityGUI() {
         !e.shiftKey
       ) {
         dispatch(setPerplexityInactive());
+      } else if (
+        e.key === "." &&
+        isMetaEquivalentKeyPressed(e) &&
+        !e.shiftKey
+      ) {
+        saveSession();
+        ideMessenger.post("aiderResetSession", undefined);
       }
     };
     window.addEventListener("keydown", listener);
@@ -149,7 +157,13 @@ function PerplexityGUI() {
         }
       }
 
-      streamResponse(editorState, modifiers, ideMessenger, undefined, "perplexity");
+      streamResponse(
+        editorState,
+        modifiers,
+        ideMessenger,
+        undefined,
+        "perplexity",
+      );
 
       const currentCount = getLocalStorage("mainTextEntryCounter");
       if (currentCount) {
@@ -205,34 +219,56 @@ function PerplexityGUI() {
   return (
     <>
       <TopGuiDiv ref={topGuiDivRef} onScroll={handleScroll}>
-        <div className="mx-2">
-          <div className="pl-2 border-b border-gray-700">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold mb-2">PearAI Search</h1>{" "}
-              <Badge variant="outline" className="pl-0">
-                Beta (Powered by Perplexity)
-              </Badge>
-            </div>
-            <div className="flex items-center mt-0 justify-between pr-1">
-              <p className="text-sm text-gray-400 m-0">
+        <div
+          className={cn(
+            "mx-2",
+            state.perplexityHistory.length === 0 &&
+              "h-full flex flex-col justify-center",
+          )}
+        >
+          {state.perplexityHistory.length === 0 ? (
+            <div className="max-w-2xl mx-auto w-full text-center">
+              <div className="w-full text-center mb-4 flex flex-col md:flex-row lg:flex-row items-center justify-center relative">
+                <h1 className="text-2xl font-bold">PearAI Search</h1>
+                <Badge variant="outline" className="lg:absolute lg:right-20 lg:translate-y-0">
+                  Beta (Powered by Perplexity*)
+                </Badge>
+              </div>
+              <p className="text-sm text-foreground">
                 Ask for anything. We'll retrieve up-to-date information in
                 real-time on the web. Search uses less credits than PearAI Chat,
                 and is perfect for documentation lookups.
               </p>
-              {state.perplexityHistory.length > 0 && (
-                <div className="mt-2">
+            </div>
+          ) : (
+            <div className="pl-2">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold mb-2">PearAI Search</h1>
+                <Badge variant="outline" className="pl-0">
+                  Beta (Powered by Perplexity*)
+                </Badge>
+              </div>
+              <div className="flex items-center mt-0 justify-between pr-1">
+                <p className="text-sm text-foreground m-0">
+                  Ask for anything. We'll retrieve up-to-date information in
+                  real-time on the web. Search uses less credits than PearAI
+                  Chat, and is perfect for documentation lookups.
+                </p>
+                <div>
                   <NewSessionButton
                     onClick={() => {
                       saveSession();
+                      ideMessenger.post("aiderResetSession", undefined);
                     }}
                     className="mr-auto"
                   >
-                    Clear chat
+                    Clear chat (<kbd>{getMetaKeyLabel()}</kbd> <kbd>.</kbd>)
                   </NewSessionButton>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
+
           <StepsDiv>
             {state.perplexityHistory.map((item, index: number) => (
               <Fragment key={index}>
@@ -275,6 +311,14 @@ function PerplexityGUI() {
                         }
                         onToggle={() => {}}
                       >
+                          {item.citations && 
+                          <Citations 
+                            citations={item.citations} 
+                            isLast={
+                              index === sessionState.perplexityHistory.length - 1
+                            }
+                            active={active}
+                          /> }
                         <StepContainer
                           index={index}
                           isLast={
@@ -331,15 +375,28 @@ function PerplexityGUI() {
               </Fragment>
             ))}
           </StepsDiv>
-          <ContinueInputBox
-            onEnter={(editorContent, modifiers) => {
-              sendInput(editorContent, modifiers);
-            }}
-            isLastUserInput={false}
-            isMainInput={true}
-            hidden={active}
-            source="perplexity"
-          ></ContinueInputBox>
+
+          <div
+            className={cn(
+              state.perplexityHistory.length === 0
+                ? "max-w-2xl mx-auto w-full"
+                : "w-full",
+            )}
+          >
+            <ContinueInputBox
+              onEnter={(editorContent, modifiers) => {
+                sendInput(editorContent, modifiers);
+              }}
+              isLastUserInput={false}
+              isMainInput={true}
+              hidden={active}
+              source="perplexity"
+              className={cn(
+                state.perplexityHistory.length === 0 && "shadow-lg",
+              )}
+            />
+          </div>
+
           {active ? (
             <>
               <br />
@@ -353,7 +410,7 @@ function PerplexityGUI() {
                 }}
                 className="mr-auto"
               >
-                Clear chat
+                Clear chat (<kbd>{getMetaKeyLabel()}</kbd> <kbd>.</kbd>)
               </NewSessionButton>
             </div>
           ) : (
@@ -394,16 +451,28 @@ function PerplexityGUI() {
           {getMetaKeyLabel()} ⌫ Cancel
         </StopButton>
       )}
+
+      <div className="text-[10px] text-muted-foreground mt-4 flex justify-end pr-2 pb-2">
+        *View PearAI Disclaimer page{" "}
+        <Link
+          to="https://trypear.ai/disclaimer/"
+          target="_blank"
+          className="text-muted-foreground no-underline hover:no-underline ml-1"
+        >
+          here
+        </Link>
+        .
+      </div>
     </>
   );
 }
 
 const tutorialContent = {
-  goodFor: "searching documentation, debugging errors, quick look-ups",
-  notGoodFor: "direct feature implementations (use PearAI chat instead)",
+  goodFor: "Searching documentation, debugging errors, quick look-ups",
+  notGoodFor: "Direct feature implementations (use PearAI Creator instead)",
   example: {
-    text: '"what\'s new in the latest python version?"',
-    copyText: "what's new in the latest python version?",
+    text: '"What\'s new in the latest python version?"',
+    copyText: "What's new in the latest python version?",
   },
 };
 

@@ -3,7 +3,7 @@
   "name": "pearai",
   "publisher": "pearai",
   "icon": "media/icon.png",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/trypear/pearai-submodule"
@@ -177,6 +177,12 @@
         "group": "PearAI"
       },
       {
+        "command": "pearai.developer.restFirstLaunch",
+        "category": "PearAI Developer",
+        "title": "Reset PearAI Onboarding",
+        "group": "PearAI"
+      },
+      {
         "command": "pearai.focusContinueInput",
         "category": "PearAI",
         "title": "Add Highlighted Code to Context",
@@ -340,13 +346,24 @@
         "category": "PearAI",
         "title": "Open PearAI Search",
         "group": "PearAI"
+      },
+      {
+        "command": "pearai.showInteractiveContinueTutorial",
+        "category": "PearAI",
+        "title": "Show Chat Tutorial",
+        "group": "PearAI"
       }
     ],
     "keybindings": [
       {
-        "command": "pearai.toggleInventory",
+        "command": "pearai.toggleInventoryHome",
         "mac": "cmd+1",
         "key": "ctrl+1"
+      },
+      {
+        "command": "pearai.toggleInventory",
+        "mac": "cmd+shift+1",
+        "key": "ctrl+shift+1"
       },
       {
         "command": "pearai.toggleCreator",
@@ -483,6 +500,9 @@
         },
         {
           "command": "pearai.newSession"
+        },
+        {
+          "command": "pearai.showInteractiveContinueTutorial"
         }
       ],
       "editor/context": [
@@ -573,7 +593,7 @@
           "id": "PearAI",
           "title": "PearAI Chat",
           "icon": "media/sidebar-icon.png",
-          "description": "Fork of Continue"
+          "description": "Powered by Continue"
         }
       ]
     },

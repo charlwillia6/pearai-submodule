@@ -57,6 +57,10 @@ import {
 } from "./getSuggestion";
 import { ComboBoxItem } from "./types";
 import { useLocation } from "react-router-dom";
+import ActiveFileIndicator from "./ActiveFileIndicator";
+import { setActiveFilePath } from "@/redux/slices/uiStateSlice";
+import TopBar from "./TopBarIndicators";
+import { isAiderMode, isPerplexityMode } from "../../util/bareChatMode";
 
 
 const InputBoxDiv = styled.div`
@@ -309,7 +313,7 @@ const TipTapEditor = memo(function TipTapEditor({
 
   // Keep track of the last valid content
   const lastContentRef = useRef(editorState);
-  
+
   useEffect(() => {
     if (editorState) {
       lastContentRef.current = editorState;
@@ -519,6 +523,9 @@ const TipTapEditor = memo(function TipTapEditor({
   }, []);  // Remove dependencies to prevent recreation
 
   const editorFocusedRef = useUpdatingRef(editor?.isFocused, [editor]);
+
+  const isPerplexity = isPerplexityMode();
+  const isAider = isAiderMode();
 
   useEffect(() => {
     const handleShowFile = (event: CustomEvent) => {
@@ -909,18 +916,18 @@ useEffect(() => {
         const newContent = editor.getJSON();
         lastContentRef.current = newContent;
         onChange?.(newContent);
-  
+
         // If /edit is typed and no context items are selected, select the first
-        
+
         if (contextItems.length > 0) {
           return;
         }
-  
+
         const codeBlock = newContent.content?.find((el) => el.type === "codeBlock");
         if (!codeBlock) {
           return;
         }
-  
+
         // Search for slashcommand type
         for (const p of newContent.content) {
           if (
@@ -1010,7 +1017,8 @@ useEffect(() => {
         });
         event.preventDefault();
       }}
-    >
+    > 
+      {(!isPerplexity && !isAider) && <TopBar />}
       <EditorContent
         spellCheck={false}
         editor={editor}

@@ -29,11 +29,11 @@ import { editConfigJson } from "./util/paths";
 import { Telemetry } from "./util/posthog";
 import { streamDiffLines } from "./util/verticalEdit";
 import PearAIServer from "./llm/llms/PearAIServer";
-import Aider from "./llm/llms/Aider";
+import Aider from "./llm/llms/AiderLLM";
 import {
   startAiderProcess,
   killAiderProcess,
-} from "../extensions/vscode/src/integrations/aider/aider";
+} from "../extensions/vscode/src/integrations/aider/aiderUtil";
 
 
 export class Core {
@@ -383,7 +383,7 @@ export class Core {
           });
           break;
         }
-        yield { content: next.value.content };
+        yield { content: next.value.content, citations: next.value?.citations };
         next = await gen.next();
       }
 
@@ -440,20 +440,33 @@ export class Core {
       return completion;
     });
 
-    on("llm/resetPearAICredentials", async (msg) => {
+    on("llm/setPearAICredentials", async (msg) => {
+      const { accessToken, refreshToken } = msg.data || {};
       const config = await this.configHandler.loadConfig();
       const pearAIModels = config.models.filter(model => model instanceof PearAIServer) as PearAIServer[];
+      const aiderModels = config.models.filter(model => model instanceof Aider) as Aider[];
 
       try {
         if (pearAIModels.length > 0) {
           pearAIModels.forEach(model => {
-            model.setPearAIAccessToken(undefined);
-            model.setPearAIRefreshToken(undefined);
+            model.setPearAIAccessToken(accessToken);
+            model.setPearAIRefreshToken(refreshToken);
           });
         }
-        return undefined;
       } catch (e) {
         console.warn(`Error resetting PearAI credentials: ${e}`);
+        return undefined;
+      }
+      // TODO @nang - handle this better
+      try {
+        if (aiderModels.length > 0) {
+          aiderModels.forEach(model => {
+            model.setPearAIAccessToken(accessToken);
+            model.setPearAIRefreshToken(refreshToken);
+          });
+        }
+      } catch (e) {
+        console.warn(`Error resetting PearAI credentials for aider: ${e}`);
         return undefined;
       }
     });

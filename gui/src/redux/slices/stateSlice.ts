@@ -4,6 +4,7 @@ import {
   ChatHistory,
   ChatHistoryItem,
   ChatMessage,
+  Citation,
   ContextItemId,
   ContextItemWithId,
   PersistedSessionInfo,
@@ -14,8 +15,8 @@ import { stripImages } from "core/llm/images";
 import { createSelector } from "reselect";
 import { v4 } from "uuid";
 import { RootState } from "../store";
-import { update } from "lodash";
-import { AiderState } from "core/llm/llms/Aider";
+import { getLocalStorage } from "@/util/localStorage";
+
 
 export const memoizedContextItemsSelector = createSelector(
   [(state: RootState) => state.state.history],
@@ -116,6 +117,7 @@ type State = {
   history: ChatHistory;
   perplexityHistory: ChatHistory;
   aiderHistory: ChatHistory;
+  perplexityCitations: Citation[];
   contextItems: ContextItemWithId[];
   active: boolean;
   perplexityActive: boolean;
@@ -127,16 +129,20 @@ type State = {
   mainEditorContent?: JSONContent;
   selectedProfileId: string;
   directoryItems: string;
-  aiderProcessState: AiderState;
+  onboardingState: { 
+    visitedFeatures: number[]; 
+    visitedSteps: number[] 
+  };
+  showInteractiveContinueTutorial: boolean;
 };
 
 const initialState: State = {
   history: [],
   perplexityHistory: [],
   aiderHistory: [],
+  perplexityCitations: [],
   contextItems: [],
   active: false,
-  aiderProcessState: { state: "starting" },
   perplexityActive: false,
   aiderActive: false,
   config: {
@@ -167,6 +173,11 @@ const initialState: State = {
   defaultModelTitle: "GPT-4",
   selectedProfileId: "local",
   directoryItems: "",
+  onboardingState: {
+    visitedFeatures: [0],
+    visitedSteps: [0]
+  },
+  showInteractiveContinueTutorial: getLocalStorage("showTutorialCard") ?? false,
 };
 
 export const stateSlice = createSlice({
@@ -204,14 +215,14 @@ export const stateSlice = createSlice({
     setActive: (state) => {
       state.active = true;
     },
-    updateAiderProcessState: (state, action: PayloadAction<AiderState>) => {
-      state.aiderProcessState = action.payload;
-    },
     setPerplexityActive: (state) => {
       state.perplexityActive = true;
     },
     setAiderActive: (state) => {
       state.aiderActive = true;
+    },
+    setPerplexityCitations: (state, action: PayloadAction<Citation[]>) => {
+      state.perplexityHistory[state.perplexityHistory.length - 1].citations = action.payload;
     },
     clearLastResponse: (state, action?: PayloadAction<'perplexity' | 'aider' | 'continue'>) => {
       if (action.payload === 'perplexity') {
@@ -377,6 +388,7 @@ export const stateSlice = createSlice({
         message: { role: "user", content: "" },
         contextItems: state.contextItems,
         editorState: payload.editorState,
+        citations: [],
       });
       state.perplexityHistory.push({
         message: {
@@ -648,6 +660,12 @@ export const stateSlice = createSlice({
         selectedProfileId: payload,
       };
     },
+    setOnboardingState: (state, { payload }: PayloadAction<any>) => {
+      state.onboardingState = payload;
+    },  
+    setShowInteractiveContinueTutorial: (state, action: PayloadAction<boolean>) => {
+      state.showInteractiveContinueTutorial = action.payload;
+    },
   },
 });
 
@@ -671,9 +689,9 @@ export const {
   setConfig,
   addPromptCompletionPair,
   setActive,
-  updateAiderProcessState,
   setPerplexityActive,
   setAiderActive,
+  setPerplexityCitations,
   setEditingContextItemAtIndex,
   initNewActiveMessage,
   initNewActivePerplexityMessage,
@@ -683,5 +701,7 @@ export const {
   consumeMainEditorContent,
   setSelectedProfileId,
   deleteMessage,
+  setOnboardingState,
+  setShowInteractiveContinueTutorial,
 } = stateSlice.actions;
 export default stateSlice.reducer;

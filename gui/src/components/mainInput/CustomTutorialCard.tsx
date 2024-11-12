@@ -60,6 +60,17 @@ const AnimatedListItem = styled.li`
   list-style: none;
 `;
 
+function parseInlineCodeBlocks(text) {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('```') && part.endsWith('```')) {
+      const code = part.slice(3, -3).trim();
+      return <code key={index} className="text-sm p-0.5 ">{code}</code>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
 export interface CustomTutorialCardProps extends TutorialCardProps {
   content: TutorialContent;
 }
@@ -80,7 +91,7 @@ export function CustomTutorialCard({
         <XMarkIcon width="1.2em" height="1.2em" />
       </div> */}
 
-      <ul className="text-gray-300 space-y-4 pl-0">
+      <ul className="text-foreground space-y-4 pl-0">
         <AnimatedListItem>
           <div className="flex">
             <div className="flex items-center gap-2 min-w-[160px]">
@@ -120,7 +131,7 @@ export function CustomTutorialCard({
               </div>
               <div>
                 {content.moreInfo.map((info, index) => (
-                  <div key={index}>{info}</div>
+                  <div key={index}>{parseInlineCodeBlocks(info)}</div>
                 ))}
               </div>
             </div>

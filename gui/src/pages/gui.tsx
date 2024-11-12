@@ -40,6 +40,7 @@ import {
   deleteMessage,
   newSession,
   setInactive,
+  setShowInteractiveContinueTutorial,
 } from "../redux/slices/stateSlice";
 import { RootState } from "../redux/store";
 import {
@@ -52,17 +53,16 @@ import { FREE_TRIAL_LIMIT_REQUESTS } from "../util/freeTrial";
 import { getLocalStorage, setLocalStorage } from "../util/localStorage";
 import PredictiveTextInput from '../components/PredictiveTestInput';
 import { UserContext } from '../context/UserContext';
+import OnboardingTutorial from "./onboarding/OnboardingTutorial";
+import { setActiveFilePath } from "@/redux/slices/uiStateSlice";
 
 export const TopGuiDiv = styled.div`
   overflow-y: scroll;
-
   scrollbar-width: none; /* Firefox */
-
   /* Hide scrollbar for Chrome, Safari and Opera */
   &::-webkit-scrollbar {
     display: none;
   }
-
   height: 100%;
 `;
 
@@ -120,6 +120,16 @@ export const NewSessionButton = styled.div`
   cursor: pointer;
 `;
 
+const TutorialCardDiv = styled.header`
+  position: sticky;
+  top: 0px;
+  z-index: 500;
+  background-color: ${vscBackground}ee; // Added 'ee' for slight transparency
+  display: flex;
+
+  width: 100%;
+`
+
 export function fallbackRender({ error, resetErrorBoundary }) {
   return (
     <div
@@ -147,20 +157,25 @@ function GUI() {
   const defaultModel = useSelector(defaultModelSelector);
   const active = useSelector((state: RootState) => state.state.active);
   const [stepsOpen, setStepsOpen] = useState<(boolean | undefined)[]>([]);
+  // If getting this from redux state, it is false. So need to get from localStorage directly.
+  // This is likely because it becomes true only after user onboards, upon which the local storage is updated.
+  // On first launch, showTutorialCard will be null, so we want to show it (true)
+  // Once it's been shown and closed, it will be false in localStorage
+  const showTutorialCard = getLocalStorage("showTutorialCard") ?? (setLocalStorage("showTutorialCard", true), true);
+  useEffect(() => {
+    // Set the redux state to the updated localStorage value (true)
+    dispatch(setShowInteractiveContinueTutorial(showTutorialCard ?? false));
+  }, [])
+  const onCloseTutorialCard = useCallback(() => {
+      posthog.capture("closedTutorialCard");
+      setLocalStorage("showTutorialCard", false);
+      dispatch(setShowInteractiveContinueTutorial(false));
+  }, []);
 
   const mainTextInputRef = useRef<HTMLInputElement>(null);
   const topGuiDivRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState<boolean>(false);
   const state = useSelector((state: RootState) => state.state);
-  const [showTutorialCard, setShowTutorialCard] = useState<boolean>(
-    getLocalStorage("showTutorialCard"),
-  );
-
-  const onCloseTutorialCard = () => {
-    posthog.capture("closedTutorialCard");
-    setLocalStorage("showTutorialCard", false);
-    setShowTutorialCard(false);
-  };
 
   const handleScroll = () => {
     const OFFSET_HERUISTIC = 300;
@@ -264,12 +279,34 @@ function GUI() {
   );
 
   useWebviewListener(
+    "setActiveFilePath",
+    async (data) => {
+      dispatch(setActiveFilePath(data));
+    },
+    []
+  );
+
+  useWebviewListener(
     "loadMostRecentChat",
     async () => {
       await loadMostRecentChat();
       mainTextInputRef.current?.focus?.();
     },
     [loadMostRecentChat],
+  );
+
+  useWebviewListener("resetInteractiveContinueTutorial", async () => {
+    setLocalStorage("showTutorialCard", true);
+    dispatch(setShowInteractiveContinueTutorial(true));
+  });
+
+  useWebviewListener(
+    "showInteractiveContinueTutorial",
+    async () => {
+      setLocalStorage("showTutorialCard", true);
+      dispatch(setShowInteractiveContinueTutorial(true));
+    },
+    [],
   );
 
   const isLastUserInput = useCallback(
@@ -288,6 +325,11 @@ function GUI() {
 
   return (
     <>
+      {!window.isPearOverlay && !!showTutorialCard && 
+        <TutorialCardDiv >
+            <OnboardingTutorial onClose={onCloseTutorialCard}/>
+        </TutorialCardDiv>
+      }
       <TopGuiDiv ref={topGuiDivRef} onScroll={handleScroll}>
         <div className="mx-2">
           <StepsDiv>
@@ -438,11 +480,6 @@ function GUI() {
                   </NewSessionButton>
                 </div>
               ) : null}
-              {!!showTutorialCard && (
-                <div className="flex justify-center w-full">
-                  <TutorialCard onClose={onCloseTutorialCard} />
-                </div>
-              )}
             </>
           )}
         </div>
