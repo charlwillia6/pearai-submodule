@@ -113,6 +113,7 @@ interface ContinueInputBoxProps {
   source?: "perplexity" | "aider" | "continue";
   predictiveCompletion?: string;
   className?: string;
+  className?: string;
 }
 
 const ContinueInputBox = memo(function ContinueInputBox({
