@@ -20,10 +20,15 @@ import Onboarding from "./pages/onboarding/Onboarding";
 import SettingsPage from "./pages/settings";
 import Stats from "./pages/stats";
 import Inventory from "./pages/inventory";
+import AiderGUI from "./integrations/aider/aidergui";
+import PerplexityGUI from "./integrations/perplexity/perplexitygui";
+import Welcome from "./pages/welcome/welcomeGui";
+import { ContextMenuProvider } from './components/ContextMenuProvider';
 
 declare global {
   interface Window {
     initialRoute?: string;
+    isFirstLaunch?: boolean;
   }
 }
 
@@ -44,11 +49,11 @@ const router = createMemoryRouter(
         },
         {
           path: "/aiderMode",
-          element: <GUI />,
+          element: <AiderGUI />,
         },
         {
           path: "/perplexityMode",
-          element: <GUI />,
+          element: <PerplexityGUI />,
         },
         {
           path: "/history",
@@ -103,14 +108,25 @@ const router = createMemoryRouter(
           element: <ApiKeyAutocompleteOnboarding />,
         },
         {
-          path: "/inventory",
+          path: "/inventory/*",
           element: <Inventory />,
+        },
+        {
+          path: "/welcome",
+          element: <Welcome/>
         },
       ],
     },
   ],
+  // TODO: Remove replace /welcome with /inventory when done testing
   {
-    initialEntries: [window.initialRoute],
+    initialEntries: [
+      window.isPearOverlay
+        ? (window.isFirstLaunch ? "/welcome" : "/inventory/home")
+        : window.initialRoute
+    ],
+    // FOR DEV'ing welcome:
+    // initialEntries: [window.isPearOverlay ? "/welcome" : window.initialRoute],
   },
 );
 
@@ -122,13 +138,15 @@ function App() {
   const submenuContextProvidersMethods = useSubmenuContextProviders();
 
   return (
-    <VscThemeContext.Provider value={vscTheme}>
-      <SubmenuContextProvidersContext.Provider
-        value={submenuContextProvidersMethods}
-      >
-        <RouterProvider router={router} />
-      </SubmenuContextProvidersContext.Provider>
-    </VscThemeContext.Provider>
+    <ContextMenuProvider>
+      <VscThemeContext.Provider value={vscTheme}>
+        <SubmenuContextProvidersContext.Provider
+          value={submenuContextProvidersMethods}
+        >
+          <RouterProvider router={router} />
+        </SubmenuContextProvidersContext.Provider>
+      </VscThemeContext.Provider>
+    </ContextMenuProvider>
   );
 }
 

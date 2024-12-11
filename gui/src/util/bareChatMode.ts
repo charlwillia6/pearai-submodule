@@ -4,19 +4,22 @@ import { defaultModelSelector } from '../redux/selectors/modelSelectors'; // Adj
 import { useLocation } from 'react-router-dom';
 
 
-const BARE_CHAT_PATHS = ['/aiderMode'];
+const BARE_CHAT_PATHS = ['aiderMode'];
 
 export function isBareChatMode() {
   const location = useLocation();
-  return BARE_CHAT_PATHS.includes(location?.pathname);
+  return BARE_CHAT_PATHS.includes(location?.pathname.split('/').pop());
 }
 
 
 export function isPerplexityMode() {
-  const defaultModel = useSelector(defaultModelSelector);
-
-  return useMemo(
-    () => defaultModel?.model?.toLowerCase().includes("perplexity"),
-    [defaultModel]
-  );
+  const location = useLocation();
+  return location?.pathname.includes('perplexity')
 }
+
+
+export function isAiderMode() {
+  const location = useLocation();
+  return location?.pathname.includes('aider')
+}
+

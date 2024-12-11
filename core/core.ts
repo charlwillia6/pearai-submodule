@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { v4 as uuidv4 } from "uuid";
-import type { ContextItemId, IDE, IndexingProgressUpdate } from ".";
+import type { ChatMessage, ContextItemId, IDE, IndexingProgressUpdate } from ".";
 import { CompletionProvider } from "./autocomplete/completionProvider";
 import { ConfigHandler } from "./config/ConfigHandler";
 import {
@@ -10,7 +10,7 @@ import {
   setupLocalMode,
 } from "./config/onboarding";
 import { createNewPromptFile } from "./config/promptFile";
-import { addModel, addOpenAIKey, deleteModel } from "./config/util";
+import { addModel, addOpenAIKey, deleteModel, toggleIntegration } from "./config/util";
 import { recentlyEditedFilesCache } from "./context/retrieval/recentlyEditedFilesCache";
 import { ContinueServerClient } from "./continueServer/stubs/client";
 import { getAuthUrlForTokenPage } from "./control-plane/auth/index";
@@ -29,7 +29,12 @@ import { editConfigJson } from "./util/paths";
 import { Telemetry } from "./util/posthog";
 import { streamDiffLines } from "./util/verticalEdit";
 import PearAIServer from "./llm/llms/PearAIServer";
-import Aider from "./llm/llms/Aider";
+import Aider from "./llm/llms/AiderLLM";
+import {
+  startAiderProcess,
+  killAiderProcess,
+} from "../extensions/vscode/src/integrations/aider/aiderUtil";
+
 
 export class Core {
   // implements IMessenger<ToCoreProtocol, FromCoreProtocol>
@@ -138,18 +143,18 @@ export class Core {
       );
 
       // Index on initialization
-      this.ide.getWorkspaceDirs().then(async (dirs) => {
+      void this.ide.getWorkspaceDirs().then(async (dirs) => {
         // Respect pauseCodebaseIndexOnStart user settings
         if (ideSettings.pauseCodebaseIndexOnStart) {
           await this.messenger.request("indexProgress", {
-            progress: 100,
+            progress: 1,
             desc: "Initial Indexing Skipped",
             status: "paused",
           });
           return;
         }
 
-        this.refreshCodebaseIndex(dirs);
+        void this.refreshCodebaseIndex(dirs);
       });
     });
 
@@ -235,6 +240,10 @@ export class Core {
 
     on("config/deleteModel", (msg) => {
       deleteModel(msg.data.title);
+      this.configHandler.reloadConfig();
+    });
+    on("config/toggleIntegration", (msg) => {
+      toggleIntegration(msg.data.name);
       this.configHandler.reloadConfig();
     });
 
@@ -378,7 +387,14 @@ export class Core {
           });
           break;
         }
-        yield { content: next.value.content };
+        // Assert that next.value is a ChatMessage
+        const chatMessage = next.value as ChatMessage;
+
+        yield {
+          content: chatMessage.content,
+          citations: chatMessage.citations
+        };
+
         next = await gen.next();
       }
 
@@ -435,92 +451,37 @@ export class Core {
       return completion;
     });
 
-    on("llm/resetPearAICredentials", async (msg) => {
+    on("llm/setPearAICredentials", async (msg) => {
+      const { accessToken, refreshToken } = msg.data || {};
       const config = await this.configHandler.loadConfig();
       const pearAIModels = config.models.filter(model => model instanceof PearAIServer) as PearAIServer[];
+      const aiderModel = config.models.find(model => model instanceof Aider) as Aider;
 
       try {
         if (pearAIModels.length > 0) {
           pearAIModels.forEach(model => {
-            model.setPearAIAccessToken(undefined);
-            model.setPearAIRefreshToken(undefined);
+            model.setPearAIAccessToken(accessToken);
+            model.setPearAIRefreshToken(refreshToken);
           });
         }
-        return undefined;
       } catch (e) {
         console.warn(`Error resetting PearAI credentials: ${e}`);
         return undefined;
       }
+      try {
+        if (aiderModel) {
+          aiderModel.setPearAIAccessToken(accessToken);
+          aiderModel.setPearAIRefreshToken(refreshToken);
+        }
+      } catch (e) {
+        console.warn(`Error resetting PearAI credentials for aider: ${e}`);
+        return undefined;
+      }
     });
-    on("llm/startAiderProcess", async () => {
-      const config = await this.configHandler.loadConfig();
-      const aiderModel = config.models.find(model => model instanceof Aider) as Aider | undefined;
+    on("llm/startAiderProcess", () => startAiderProcess(this));
 
-      if (aiderModel) {
-        try {
-          await aiderModel.startAiderChat(aiderModel.model, aiderModel.apiKey);
-        } catch (e) {
-          console.warn(`Error starting Aider process: ${e}`);
-        }
-      } else {
-        console.warn("No Aider model found in configuration");
-        return undefined;
-      }
-    });
-    on("llm/killAiderProcess", async () => {
-      const config = await this.configHandler.loadConfig();
-      const aiderModels = config.models.filter(model => model instanceof Aider) as Aider[];
+    on("llm/killAiderProcess", () => killAiderProcess(this));
 
-      try {
-        if (aiderModels.length > 0) {
-          aiderModels.forEach(model => {
-            model.killAiderProcess();
-          });
-        }
-        return undefined;
-      } catch (e) {
-        console.warn(`Error killing Aider process: ${e}`);
-        return undefined;
-      }
-    });
-    on("llm/aiderCtrlC", async () => {
-      const config = await this.configHandler.loadConfig();
-      const aiderModels = config.models.filter(model => model instanceof Aider) as Aider[];
-      console.log(config.models)
-      console.log(aiderModels)
-      try {
-        if (aiderModels.length > 0) {
-          aiderModels.forEach(model => {
-            if (model.aiderProcess) {
-              model.aiderCtrlC();
-            }
-          });
-        }
-        return undefined;
-      } catch (e) {
-        console.warn(`Error killing Aider process: ${e}`);
-        return undefined;
-      }
-    });
-    on("llm/aiderResetSession", async () => {
-      const config = await this.configHandler.loadConfig();
-      const aiderModels = config.models.filter(model => model instanceof Aider) as Aider[];
-      console.log(config.models)
-      console.log(aiderModels)
-      try {
-        if (aiderModels.length > 0) {
-          aiderModels.forEach(model => {
-            if (model.aiderProcess) {
-              model.aiderResetSession(model.model, model.apiKey);
-            }
-          });
-        }
-        return undefined;
-      } catch (e) {
-        console.warn(`Error killing Aider process: ${e}`);
-        return undefined;
-      }
-    });
     on("llm/listModels", async (msg) => {
       const config = await this.configHandler.loadConfig();
       const model =
@@ -724,8 +685,12 @@ export class Core {
       const rows = await DevDataSqliteDb.getTokensPerModel();
       return rows;
     });
-    on("index/forceReIndex", async (msg) => {
-      const dirs = msg.data ? [msg.data] : await this.ide.getWorkspaceDirs();
+    on("index/forceReIndex", async ({ data }) => {
+      // if (data?.shouldClearIndexes) {
+      //   const codebaseIndexer = await this.codebaseIndexerPromise;
+      //   await codebaseIndexer.clearIndexes();
+      // }
+      const dirs = data?.dir ? [data.dir] : await this.ide.getWorkspaceDirs();
       await this.refreshCodebaseIndex(dirs);
     });
     on("index/setPaused", (msg) => {
@@ -759,6 +724,22 @@ export class Core {
 
   private indexingCancellationController: AbortController | undefined;
 
+  // private async refreshCodebaseIndex(dirs: string[]) {
+  //   if (this.indexingCancellationController) {
+  //     this.indexingCancellationController.abort();
+  //   }
+  //   this.indexingCancellationController = new AbortController();
+  //   for await (const update of (await this.codebaseIndexerPromise).refresh(
+  //     dirs,
+  //     this.indexingCancellationController.signal,
+  //   )) {
+  //     this.messenger.request("indexProgress", update);
+  //     this.indexingState = update;
+  //   }
+
+  //   this.messenger.send("refreshSubmenuItems", undefined);
+  // }
+
   private async refreshCodebaseIndex(dirs: string[]) {
     if (this.indexingCancellationController) {
       this.indexingCancellationController.abort();
@@ -768,10 +749,32 @@ export class Core {
       dirs,
       this.indexingCancellationController.signal,
     )) {
-      this.messenger.request("indexProgress", update);
-      this.indexingState = update;
-    }
+      let updateToSend = { ...update };
+      if (update.status === "failed") {
+        updateToSend.status = "done";
+        updateToSend.desc = "Indexing complete";
+        updateToSend.progress = 1.0;
+      }
 
+      void this.messenger.request("indexProgress", updateToSend);
+      this.indexingState = updateToSend;
+
+      if (update.status === "failed") {
+        console.debug(
+          "Indexing failed with error: ",
+          update.desc,
+          // update.debugInfo,
+        );
+        void Telemetry.capture(
+          "indexing_error",
+          {
+            error: update.desc,
+            // stack: update.debugInfo,
+          },
+          false,
+        );
+      }
+    }
     this.messenger.send("refreshSubmenuItems", undefined);
   }
 }
