@@ -613,9 +613,8 @@
         {
           "type": "webview",
           "id": "pearai.pearAIChatView",
-          "name": "",
-          "visibility": "visible",
-          "title": "PearAISidebar"
+          "name": "PearAI",
+          "visibility": "visible"
         }
       ]
     },

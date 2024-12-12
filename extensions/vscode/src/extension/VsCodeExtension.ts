@@ -50,7 +50,10 @@ export class VsCodeExtension {
   private battery: Battery;
   private workOsAuthProvider: WorkOsAuthProvider;
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(
+    context: vscode.ExtensionContext,
+    sidebar: ContinueGUIWebviewViewProvider
+  ) {
     // Register auth provider
     this.workOsAuthProvider = new WorkOsAuthProvider(context);
     // this.workOsAuthProvider.initialize();
@@ -66,6 +69,7 @@ export class VsCodeExtension {
     this.ide = new VsCodeIde(this.diffManager, this.webviewProtocolPromise);
     this.extensionContext = context;
     this.windowId = uuidv4();
+    this.sidebar = sidebar;
 
     // Dependencies of core
     let resolveVerticalDiffManager: any = undefined;
@@ -78,12 +82,6 @@ export class VsCodeExtension {
     const configHandlerPromise = new Promise<ConfigHandler>((resolve) => {
       resolveConfigHandler = resolve;
     });
-
-    this.sidebar = new ContinueGUIWebviewViewProvider(
-      configHandlerPromise,
-      this.windowId,
-      this.extensionContext,
-    );
 
     // Sidebar + Overlay
     context.subscriptions.push(
@@ -380,7 +378,7 @@ export class VsCodeExtension {
       this.sidebar.webviewProtocol.request("setActiveFilePath", filepath, [PEAR_CONTINUE_VIEW_ID]);
     });
 
-    this.updateNewWindowActiveFilePath()
+    this.updateNewWindowActiveFilePath();
     startAiderProcess(this.core);
   }
 

@@ -8,7 +8,7 @@ import { getExtensionVersion } from "../util/util";
 import { VsCodeContinueApi } from "./api";
 import { setupInlineTips } from "./inlineTips";
 import { isFirstLaunch } from "../copySettings";
-
+import { TabManager } from '../views/TabManager';
 
 export async function isVSCodeExtensionInstalled(extensionId: string): Promise<boolean> {
   return vscode.extensions.getExtension(extensionId) !== undefined;
@@ -51,65 +51,74 @@ export async function attemptUninstallExtension(extensionId: string): Promise<vo
 }
 
 export async function activateExtension(context: vscode.ExtensionContext) {
-  // Add necessary files
-  getTsConfigPath();
-  getContinueRcPath();
+  try {
+    // Initialize tab manager
+    const tabManager = new TabManager(context);
+    tabManager.registerProviders(context);
 
-  // Register commands and providers
-  registerQuickFixProvider();
-  setupInlineTips(context);
+    // Initialize the extension with the chat provider from tab manager
+    const vscodeExtension = new VsCodeExtension(context, tabManager.getChatProvider());
 
-  const vscodeExtension = new VsCodeExtension(context);
+    // Add necessary files
+    getTsConfigPath();
+    getContinueRcPath();
 
-  // migrate("showWelcome_1", () => {
-  //   vscode.commands.executeCommand(
-  //     "markdown.showPreview",
-  //     vscode.Uri.file(
-  //       path.join(getExtensionUri().fsPath, "media", "welcome.md"),
-  //     ),
-  //   );
+    // Register commands and providers
+    registerQuickFixProvider();
+    setupInlineTips(context);
 
-  //   vscode.commands.executeCommand("pearai.focusContinueInput");
-  // });
+    // migrate("showWelcome_1", () => {
+    //   vscode.commands.executeCommand(
+    //     "markdown.showPreview",
+    //     vscode.Uri.file(
+    //       path.join(getExtensionUri().fsPath, "media", "welcome.md"),
+    //     ),
+    //   );
+
+    //   vscode.commands.executeCommand("pearai.focusContinueInput");
+    // });
 
 
-  // for DEV'ing welcome page
-  // if (true || isFirstLaunch(context)) {
-  //   vscode.commands.executeCommand("pearai.startOnboarding");
-  // }
+    // for DEV'ing welcome page
+    // if (true || isFirstLaunch(context)) {
+    //   vscode.commands.executeCommand("pearai.startOnboarding");
+    // }
 
-  if (isFirstLaunch(context)) {
-    vscode.commands.executeCommand("pearai.startOnboarding");
-    setupPearAPPLayout(context);
+    if (isFirstLaunch(context)) {
+      vscode.commands.executeCommand("pearai.startOnboarding");
+      setupPearAPPLayout(context);
+    }
+
+    // vscode.commands.executeCommand("pearai.focusContinueInput");
+
+    // Load PearAI configuration
+    if (!context.globalState.get("hasBeenInstalled")) {
+      context.globalState.update("hasBeenInstalled", true);
+      Telemetry.capture(
+        "install",
+        {
+          extensionVersion: getExtensionVersion(),
+        },
+        true,
+      );
+    }
+
+    const api = new VsCodeContinueApi(vscodeExtension);
+    const continuePublicApi = {
+      registerCustomContextProvider: api.registerCustomContextProvider.bind(api),
+    };
+
+    // 'export' public api-surface
+    // or entire extension for testing
+    return process.env.NODE_ENV === "test"
+      ? {
+          ...continuePublicApi,
+          extension: vscodeExtension,
+        }
+      : continuePublicApi;
+  } catch (error) {
+    console.error(error);
   }
-
-  // vscode.commands.executeCommand("pearai.focusContinueInput");
-
-  // Load PearAI configuration
-  if (!context.globalState.get("hasBeenInstalled")) {
-    context.globalState.update("hasBeenInstalled", true);
-    Telemetry.capture(
-      "install",
-      {
-        extensionVersion: getExtensionVersion(),
-      },
-      true,
-    );
-  }
-
-  const api = new VsCodeContinueApi(vscodeExtension);
-  const continuePublicApi = {
-    registerCustomContextProvider: api.registerCustomContextProvider.bind(api),
-  };
-
-  // 'export' public api-surface
-  // or entire extension for testing
-  return process.env.NODE_ENV === "test"
-    ? {
-        ...continuePublicApi,
-        extension: vscodeExtension,
-      }
-    : continuePublicApi;
 }
 
 // Custom Layout settings that we want default for PearAPP

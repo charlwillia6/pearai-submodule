@@ -63,6 +63,11 @@ export type ToIdeFromWebviewProtocol = ToIdeFromWebviewOrCoreProtocol & {
   pearAIinstallation: [{tools: ToolType[], installExtensions: boolean}, void];
   "mem0/getMemories": [undefined, Memory[]];
   "mem0/updateMemories": [{ changes: MemoryChange[] }, boolean];
+  reviewWorkingState: [{ instructions: string }, void];
+  diffWithMain: [{ instructions: string }, void];
+  reviewLastCommit: [{ instructions: string }, void];
+  clearReviewHistory: [undefined, void];
+  refreshReview: [undefined, void];
 };
 
 export type ToWebviewFromIdeProtocol = ToWebviewFromIdeOrCoreProtocol & {

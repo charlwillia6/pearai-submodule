@@ -1,6 +1,6 @@
 import { useDispatch } from "react-redux";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
-import Layout from "./components/Layout";
+import { ExtensionContainer } from "./components/ExtensionContainer";
 import { SubmenuContextProvidersContext } from "./context/SubmenuContextProviders";
 import { VscThemeContext } from "./context/VscTheme";
 import useSetup from "./hooks/useSetup";
@@ -36,7 +36,7 @@ const router = createMemoryRouter(
   [
     {
       path: "/",
-      element: <Layout />,
+      element: <ExtensionContainer />,
       errorElement: <ErrorPage />,
       children: [
         {
