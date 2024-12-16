@@ -9,6 +9,7 @@ class Calculator {
   }
 
   subtract(number) {
+    
     this.result -= number;
     return this;
   }

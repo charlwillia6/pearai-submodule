@@ -75,6 +75,18 @@ export const defaultSlashCommandsVscode: SlashCommandDescription[] = [
     name: "component",
     description: "Generate a component using v0",
   },
+  {
+    name: "review-working",
+    description: "Review current working state changes for code quality and issues",
+  },
+  {
+    name: "review-main",
+    description: "Review changes compared to main branch for code quality and issues",
+  },
+  {
+    name: "review-last-commit",
+    description: "Review the last commit for code quality and issues",
+  },
 ];
 
 export const defaultSlashCommandsJetBrains = [
