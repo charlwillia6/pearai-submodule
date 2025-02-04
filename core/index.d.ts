@@ -1071,3 +1071,8 @@ export interface PearAuth {
   accessToken?: string;
   refreshToken?: string;
 }
+
+export interface TabAutocompleteState {
+  selectedModel: string | undefined;
+  isEnabled: boolean;
+}

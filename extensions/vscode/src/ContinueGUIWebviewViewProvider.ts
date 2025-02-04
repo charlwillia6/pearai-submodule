@@ -9,7 +9,7 @@ import { isFirstLaunch } from "./copySettings";
 
 // The overlay's webview title/id is defined in pearai-app's PearOverlayParts.ts
 // A unique identifier is needed for the messaging protocol to distinguish the webviews.
-export const PEAR_OVERLAY_VIEW_ID = "pearai.pearOverlay"
+export const PEAR_OVERLAY_VIEW_ID = "pearai.pearOverlay";
 export const PEAR_CONTINUE_VIEW_ID = "pearai.pearAIChatView";
 
 export class ContinueGUIWebviewViewProvider
@@ -60,6 +60,17 @@ export class ContinueGUIWebviewViewProvider
       const logMessage = `[${timestamp}] [${message.level.toUpperCase()}] ${message.text}`;
       this.outputChannel.appendLine(logMessage);
     }
+
+    if (message.command === "getTabAutocompleteState") {
+      const state = await vscode.commands.executeCommand("pearai.getTabAutocompleteState");
+
+      this._webview?.postMessage({
+        command: "updateTabAutocompleteState",
+        state
+      });
+
+      return;
+    }
   }
 
   resolveWebviewView(
@@ -88,7 +99,7 @@ export class ContinueGUIWebviewViewProvider
 
   public resetWebviewProtocolWebview(): void {
     if (this._webview) {
-      this.webviewProtocol.resetWebviewToDefault()
+      this.webviewProtocol.resetWebviewToDefault();
     } else {
       console.warn("no webview found during reset");
     }

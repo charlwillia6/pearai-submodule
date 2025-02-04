@@ -2,18 +2,17 @@ import { JSONContent } from "@tiptap/react";
 import { ContextItemWithId, InputModifiers } from "core";
 import { useDispatch, useSelector } from "react-redux";
 import styled, { keyframes } from "styled-components";
-import { defaultBorderRadius, lightGray, vscBackground } from "..";
+import { lightGray, vscBackground } from "..";
 import { useWebviewListener } from "../../hooks/useWebviewListener";
 import { selectSlashCommands } from "../../redux/selectors";
 import { newSession, setMessageAtIndex } from "../../redux/slices/stateSlice";
 import { RootState } from "../../redux/store";
 import ContextItemsPeek from "./ContextItemsPeek";
 import TipTapEditor from "./TipTapEditor";
-import { useMemo, memo, useState, useEffect, useCallback } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { isBareChatMode } from "../../util/bareChatMode";
 import { getContextProviders } from "../../integrations/util/integrationSpecificContextProviders";
 import { getFontSize } from "../../util";
-import { cn } from "@/lib/utils";
 import { Tail } from "@/components/ui/tail";
 
 const gradient = keyframes`

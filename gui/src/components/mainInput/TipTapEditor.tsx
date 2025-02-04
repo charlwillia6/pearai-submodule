@@ -24,12 +24,7 @@ import {
   lightGray,
   vscBadgeBackground,
   vscForeground,
-  vscInputBackground,
-  vscInputBorder,
-  vscSidebarBorder,
-  vscBackground,
   vscEditorBackground,
-  vscInputBorderFocus,
 } from "..";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
 import { SubmenuContextProvidersContext } from "../../context/SubmenuContextProviders";
@@ -64,7 +59,7 @@ import { ComboBoxItem } from "./types";
 import { useLocation } from "react-router-dom";
 import { isAiderMode, isPerplexityMode } from "../../util/bareChatMode";
 import { TipTapContextMenu } from './TipTapContextMenu';
-
+import { ChatAutocomplete } from './ChatAutocomplete';
 
 const InputBoxDiv = styled.div`
 	position: relative;
@@ -985,7 +980,6 @@ const TipTapEditor = memo(function TipTapEditor({
     }
   }, [editor, source]);
 
-
   const [contextMenu, setContextMenu] = useState<{
     position: { x: number; y: number };
   } | null>(null);
@@ -1092,7 +1086,7 @@ const TipTapEditor = memo(function TipTapEditor({
       }}
     >
       <ContextToolbar
-hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
+        hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
         onImageFileSelected={(file) => {
           handleImageFile(file).then(([img, dataUrl]) => {
             const { schema } = editor.state;
@@ -1110,7 +1104,7 @@ hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
             editor.commands.insertContent(" @");
           }
         }}
-				editor={editor}
+        editor={editor}
       />
 
       <EditorContent
@@ -1120,7 +1114,7 @@ hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
           event.stopPropagation();
         }}
       />
-
+      {isMainInput && <ChatAutocomplete editor={editor} />}
       <InputToolbar
         showNoContext={optionKeyHeld}
         hidden={!(editorFocusedRef.current || isMainInput)}
@@ -1143,7 +1137,6 @@ hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
           });
         }}
       />
-
       {showDragOverMsg &&
         modelSupportsImages(
           defaultModel.provider,
@@ -1156,7 +1149,7 @@ hidden={!(editorFocusedRef.current || isMainInput) || isPerplexity || isAider}
             <HoverTextDiv>Drop Here</HoverTextDiv>
           </>
         )
-			}
+      }
       {contextMenu && editor && (
         <TipTapContextMenu
           editor={editor}
